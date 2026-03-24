@@ -111,7 +111,20 @@ void Input::tick(LocalPlayer* player) {
         }
         tx = ty = 0.0f;
     }
-    player->interpolateTurn(tx * abs(tx) * turnSpeed, ty * abs(ty) * turnSpeed);
+    // The original console stick curve squares the look input, which is fine
+    // for analog sticks but can make mouse-driven look on Linux feel like it
+    // "sticks" around the current viewpoint.
+    const float lookDeadzone = 0.01f;
+    if (Mth::abs(tx) < lookDeadzone) tx = 0.0f;
+    if (Mth::abs(ty) < lookDeadzone) ty = 0.0f;
+
+#ifdef __linux__
+    // Keep look movement responsive for mouse/desktop input.
+    player->interpolateTurn(tx * turnSpeed, ty * turnSpeed);
+#else
+    player->interpolateTurn(tx * abs(tx) * turnSpeed,
+                            ty * abs(ty) * turnSpeed);
+#endif
 
     // jumping = controller.isButtonPressed(0);
 
