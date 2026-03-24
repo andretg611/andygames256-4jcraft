@@ -18,6 +18,13 @@ Input::Input() {
 
     lReset = false;
     rReset = false;
+
+#ifdef __linux__
+    // Desktop input paths can expose non-zero stick proxies during startup,
+    // which can leave reset gates latched and make look/move feel stuck.
+    lReset = true;
+    rReset = true;
+#endif
 }
 
 void Input::tick(LocalPlayer* player) {
@@ -53,8 +60,11 @@ void Input::tick(LocalPlayer* player) {
     }
 #endif
 
+    const float stickResetThreshold = 0.01f;
+    const float stickResetThresholdSq = stickResetThreshold * stickResetThreshold;
+
     if (!lReset) {
-        if (xa * xa + ya * ya == 0.0f) {
+        if (xa * xa + ya * ya <= stickResetThresholdSq) {
             lReset = true;
         }
         xa = ya = 0.0f;
@@ -106,7 +116,7 @@ void Input::tick(LocalPlayer* player) {
     }
 
     if (!rReset) {
-        if (tx * tx + ty * ty == 0.0f) {
+        if (tx * tx + ty * ty <= stickResetThresholdSq) {
             rReset = true;
         }
         tx = ty = 0.0f;
