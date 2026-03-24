@@ -18,6 +18,13 @@ Input::Input() {
 
     lReset = false;
     rReset = false;
+
+#ifdef __linux__
+    // Desktop input paths can expose non-zero stick proxies during startup,
+    // which can leave reset gates latched and make look/move feel stuck.
+    lReset = true;
+    rReset = true;
+#endif
 }
 
 void Input::tick(LocalPlayer* player) {
@@ -53,8 +60,11 @@ void Input::tick(LocalPlayer* player) {
     }
 #endif
 
+    const float stickResetThreshold = 0.01f;
+    const float stickResetThresholdSq = stickResetThreshold * stickResetThreshold;
+
     if (!lReset) {
-        if (xa * xa + ya * ya == 0.0f) {
+        if (xa * xa + ya * ya <= stickResetThresholdSq) {
             lReset = true;
         }
         xa = ya = 0.0f;
@@ -106,12 +116,25 @@ void Input::tick(LocalPlayer* player) {
     }
 
     if (!rReset) {
-        if (tx * tx + ty * ty == 0.0f) {
+        if (tx * tx + ty * ty <= stickResetThresholdSq) {
             rReset = true;
         }
         tx = ty = 0.0f;
     }
-    player->interpolateTurn(tx * abs(tx) * turnSpeed, ty * abs(ty) * turnSpeed);
+    // The original console stick curve squares the look input, which is fine
+    // for analog sticks but can make mouse-driven look on Linux feel like it
+    // "sticks" around the current viewpoint.
+    const float lookDeadzone = 0.01f;
+    if (Mth::abs(tx) < lookDeadzone) tx = 0.0f;
+    if (Mth::abs(ty) < lookDeadzone) ty = 0.0f;
+
+#ifdef __linux__
+    // Keep look movement responsive for mouse/desktop input.
+    player->interpolateTurn(tx * turnSpeed, ty * turnSpeed);
+#else
+    player->interpolateTurn(tx * abs(tx) * turnSpeed,
+                            ty * abs(ty) * turnSpeed);
+#endif
 
     // jumping = controller.isButtonPressed(0);
 
